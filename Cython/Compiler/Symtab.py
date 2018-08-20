@@ -203,9 +203,10 @@ class Entry(object):
     cf_used = True
     outer_entry = None
 
-    def __init__(self, name, cname, type, pos = None, init = None):
+    def __init__(self, name, cname, type, pos = None, init = None, getter=None):
         self.name = name
         self.cname = cname
+        self.getter = getter
         self.type = type
         self.pos = pos
         self.init = init
@@ -435,7 +436,8 @@ class Scope(object):
             for scope in sorted(self.subscopes, key=operator.attrgetter('scope_prefix')):
                 yield scope
 
-    def declare(self, name, cname, type, pos, visibility, shadow = 0, is_type = 0, create_wrapper = 0):
+    def declare(self, name, cname, type, pos, visibility, shadow = 0,
+                is_type = 0, create_wrapper = 0, getter=None):
         # Create new entry, and add to dictionary if
         # name is not None. Reports a warning if already
         # declared.
@@ -444,6 +446,8 @@ class Scope(object):
         if not self.in_cinclude and cname and re.match("^_[_A-Z]+$", cname):
             # See http://www.gnu.org/software/libc/manual/html_node/Reserved-Names.html#Reserved-Names
             warning(pos, "'%s' is a reserved name in C." % cname, -1)
+        if getter and re.match("^_[_A-Z]+$", getter):
+            warning(pos, "'%s' is a reserved name in C." % getter, -1)
         entries = self.entries
         if name and name in entries and not shadow:
             old_entry = entries[name]
@@ -473,7 +477,7 @@ class Scope(object):
             elif visibility != 'ignore':
                 error(pos, "'%s' redeclared " % name)
                 entries[name].already_declared_here()
-        entry = Entry(name, cname, type, pos = pos)
+        entry = Entry(name, cname, type, pos = pos, getter=getter)
         entry.in_cinclude = self.in_cinclude
         entry.create_wrapper = create_wrapper
         if name:
@@ -677,7 +681,7 @@ class Scope(object):
 
     def declare_var(self, name, type, pos,
                     cname = None, visibility = 'private',
-                    api = 0, in_pxd = 0, is_cdef = 0):
+                    api = 0, in_pxd = 0, is_cdef = 0, getter=None):
         # Add an entry for a variable.
         if not cname:
             if visibility != 'private' or api:
@@ -686,7 +690,7 @@ class Scope(object):
                 cname = self.mangle(Naming.var_prefix, name)
         if type.is_cpp_class and visibility != 'extern':
             type.check_nullary_constructor(pos)
-        entry = self.declare(name, cname, type, pos, visibility)
+        entry = self.declare(name, cname, type, pos, visibility, getter=getter)
         entry.is_variable = 1
         if in_pxd and visibility != 'extern':
             entry.defined_in_pxd = 1
@@ -1373,7 +1377,7 @@ class ModuleScope(Scope):
 
     def declare_var(self, name, type, pos,
                     cname = None, visibility = 'private',
-                    api = 0, in_pxd = 0, is_cdef = 0):
+                    api = 0, in_pxd = 0, is_cdef = 0, getter=None):
         # Add an entry for a global variable. If it is a Python
         # object type, and not declared with cdef, it will live
         # in the module dictionary, otherwise it will be a C
@@ -1743,13 +1747,14 @@ class LocalScope(Scope):
 
     def declare_var(self, name, type, pos,
                     cname = None, visibility = 'private',
-                    api = 0, in_pxd = 0, is_cdef = 0):
+                    api = 0, in_pxd = 0, is_cdef = 0, getter=None):
         # Add an entry for a local variable.
         if visibility in ('public', 'readonly'):
             error(pos, "Local variable cannot be declared %s" % visibility)
         entry = Scope.declare_var(self, name, type, pos,
                                   cname=cname, visibility=visibility,
-                                  api=api, in_pxd=in_pxd, is_cdef=is_cdef)
+                                  api=api, in_pxd=in_pxd, is_cdef=is_cdef,
+                                  getter=getter)
         if entry.type.declaration_value:
             entry.init = entry.type.declaration_value
         entry.is_local = 1
@@ -1842,7 +1847,7 @@ class GeneratorExpressionScope(Scope):
 
     def declare_var(self, name, type, pos,
                     cname = None, visibility = 'private',
-                    api = 0, in_pxd = 0, is_cdef = True):
+                    api = 0, in_pxd = 0, is_cdef = True, getter=None):
         if type is unspecified_type:
             # if the outer scope defines a type for this variable, inherit it
             outer_entry = self.outer_scope.lookup(name)
@@ -1902,7 +1907,7 @@ class StructOrUnionScope(Scope):
 
     def declare_var(self, name, type, pos,
                     cname = None, visibility = 'private',
-                    api = 0, in_pxd = 0, is_cdef = 0,
+                    api = 0, in_pxd = 0, is_cdef = 0, getter=None,
                     allow_pyobject=False, allow_memoryview=False):
         # Add an entry for an attribute.
         if not cname:
@@ -1911,7 +1916,7 @@ class StructOrUnionScope(Scope):
                 cname = c_safe_identifier(cname)
         if type.is_cfunction:
             type = PyrexTypes.CPtrType(type)
-        entry = self.declare(name, cname, type, pos, visibility)
+        entry = self.declare(name, cname, type, pos, visibility, getter=getter)
         entry.is_variable = 1
         self.var_entries.append(entry)
         if type.is_pyobject and not allow_pyobject:
@@ -1988,14 +1993,15 @@ class PyClassScope(ClassScope):
 
     def declare_var(self, name, type, pos,
                     cname = None, visibility = 'private',
-                    api = 0, in_pxd = 0, is_cdef = 0):
+                    api = 0, in_pxd = 0, is_cdef = 0, getter=None):
         name = self.mangle_special_name(name)
         if type is unspecified_type:
             type = py_object_type
         # Add an entry for a class attribute.
         entry = Scope.declare_var(self, name, type, pos,
                                   cname=cname, visibility=visibility,
-                                  api=api, in_pxd=in_pxd, is_cdef=is_cdef)
+                                  api=api, in_pxd=in_pxd, is_cdef=is_cdef,
+                                  getter=getter)
         entry.is_pyglobal = 1
         entry.is_pyclass_attr = 1
         return entry
@@ -2102,7 +2108,7 @@ class CClassScope(ClassScope):
 
     def declare_var(self, name, type, pos,
                     cname = None, visibility = 'private',
-                    api = 0, in_pxd = 0, is_cdef = 0):
+                    getter=None, api = 0, in_pxd = 0, is_cdef = 0):
         if is_cdef:
             # Add an entry for an attribute.
             if self.defined:
@@ -2120,7 +2126,7 @@ class CClassScope(ClassScope):
             if type.is_cpp_class and visibility != 'extern':
                 type.check_nullary_constructor(pos)
                 self.use_utility_code(Code.UtilityCode("#include <new>"))
-            entry = self.declare(name, cname, type, pos, visibility)
+            entry = self.declare(name, cname, type, pos, visibility, getter=getter)
             entry.is_variable = 1
             self.var_entries.append(entry)
             if type.is_memoryviewslice:
@@ -2364,7 +2370,8 @@ class CppClassScope(Scope):
 
     def declare_var(self, name, type, pos,
                     cname = None, visibility = 'extern',
-                    api = 0, in_pxd = 0, is_cdef = 0, defining = 0):
+                    api = 0, in_pxd = 0, is_cdef = 0, defining = 0,
+                    getter=None):
         # Add an entry for an attribute.
         if not cname:
             cname = name
@@ -2378,7 +2385,7 @@ class CppClassScope(Scope):
             else:
                 error(pos, "Function signature does not match previous declaration")
         else:
-            entry = self.declare(name, cname, type, pos, visibility)
+            entry = self.declare(name, cname, type, pos, visibility, getter=getter)
         entry.is_variable = 1
         if type.is_cfunction and self.type:
             if not self.type.get_fused_types():
@@ -2389,7 +2396,8 @@ class CppClassScope(Scope):
 
     def declare_cfunction(self, name, type, pos,
                           cname=None, visibility='extern', api=0, in_pxd=0,
-                          defining=0, modifiers=(), utility_code=None, overridable=False):
+                          defining=0, modifiers=(), utility_code=None,
+                          overridable=False, getter=None):
         class_name = self.name.split('::')[-1]
         if name in (class_name, '__init__') and cname is None:
             cname = "%s__init__%s" % (Naming.func_prefix, class_name)

@@ -1357,6 +1357,7 @@ class CVarDefNode(StatNode):
                 error(declarator.pos, "Python object cannot be declared extern")
             name = name_declarator.name
             cname = name_declarator.cname
+            getter = name_declarator.getter
             if name == '':
                 error(declarator.pos, "Missing name in declaration.")
                 return
@@ -1380,7 +1381,7 @@ class CVarDefNode(StatNode):
                 self.entry = dest_scope.declare_var(
                     name, type, declarator.pos,
                     cname=cname, visibility=visibility, in_pxd=self.in_pxd,
-                    api=self.api, is_cdef=1)
+                    getter=getter, api=self.api, is_cdef=1)
                 if Options.docstrings:
                     self.entry.doc = embed_position(self.pos, self.doc)
 
@@ -3760,8 +3761,12 @@ class DefNodeWrapper(FuncDefNode):
                 if arg.default:
                     # C-typed default arguments must be handled here
                     code.putln('if (%s) {' % item)
-                code.putln(arg.type.from_py_call_code(
-                    item, arg.entry.cname, arg.pos, code))
+                try:
+                    code.putln(arg.type.from_py_call_code(
+                        item, arg.entry.cname, arg.pos, code))
+                except:
+                    import pdb;pdb.set_trace()
+                    raise
                 if arg.default:
                     code.putln('} else {')
                     code.putln("%s = %s;" % (

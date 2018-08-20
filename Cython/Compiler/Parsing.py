@@ -2858,6 +2858,7 @@ def p_c_simple_declarator(s, ctx, empty, is_type, cmethod_flag,
         result = Nodes.CReferenceDeclaratorNode(pos, base = base)
     else:
         rhs = None
+        getter = None
         if s.sy == 'IDENT':
             name = s.systring
             if empty:
@@ -2867,6 +2868,13 @@ def p_c_simple_declarator(s, ctx, empty, is_type, cmethod_flag,
             if name != 'operator' and s.sy == '=' and assignable:
                 s.next()
                 rhs = p_test(s)
+            if cname is None and s.sy == 'IDENT':
+                if ctx.level == 'c_class_pxd':
+                    # XXX check that getter is a valid function to call,
+                    # i.e. it accepts the class we are analyzing and
+                    # returns the correct return type
+                    getter = s.systring
+                    s.next()
         else:
             if nonempty:
                 error(s.position(), "Empty declarator")
@@ -2903,7 +2911,7 @@ def p_c_simple_declarator(s, ctx, empty, is_type, cmethod_flag,
                 name = name + ' ' + op
                 s.next()
         result = Nodes.CNameDeclaratorNode(pos,
-            name = name, cname = cname, default = rhs)
+            name = name, cname = cname, getter=getter, default = rhs)
     result.calling_convention = calling_convention
     return result
 

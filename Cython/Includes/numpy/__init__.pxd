@@ -25,7 +25,7 @@ cimport libc.stdio as stdio
 
 cdef extern from *:
     """
-    #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+    #define NPY_NO_DEPRECATED_API NPY_1_14_API_VERSION
     """
 
 cdef extern from "Python.h":
@@ -189,9 +189,8 @@ cdef extern from "numpy/arrayobject.h":
         cdef dict fields
         cdef tuple names
         # Use PyDataType_HASSUBARRAY to test whether this field is
-        # valid (the pointer can be NULL). Most users should access
-        # this field via the inline helper method PyDataType_SHAPE.
-        cdef PyArray_ArrayDescr* subarray
+        # valid (the pointer can be NULL). 
+        cdef PyArray_ArrayDescr* subarray 
 
     ctypedef extern class numpy.flatiter [object PyArrayIterObject]:
         # Use through macros
@@ -210,13 +209,11 @@ cdef extern from "numpy/arrayobject.h":
         cdef __cythonbufferdefaults__ = {"mode": "strided"}
 
         cdef:
-            # Only taking a few of the most commonly used and stable fields.
-            # One should use PyArray_* macros instead to access the C fields.
-            char *data
-            int ndim "nd"
-            npy_intp *shape "dimensions"
-            npy_intp *strides
-            PyObject* base
+            # Convert python __getattr__ access to c functions.
+            char *data PyArray_BYTES
+            int ndim PyArray_NDIM
+            npy_intp *shape PyArray_DIMS
+            npy_intp *strides PyArray_STRIDES
 
         # Note: This syntax (function definition in pxd files) is an
         # experimental exception made for __getbuffer__ and __releasebuffer__
