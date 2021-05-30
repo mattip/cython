@@ -108,6 +108,7 @@ elif [ -n "${PYTHON_VERSION##pypy*}" ]; then
 fi
 
 export CFLAGS="-O0 -ggdb -Wall -Wextra $EXTRA_CFLAGS"
+set -ex
 python runtests.py \
   -vv $STYLE_ARGS \
   -x Debugger \
