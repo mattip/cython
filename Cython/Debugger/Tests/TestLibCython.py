@@ -104,11 +104,10 @@ class DebuggerTestCase(unittest.TestCase):
             optimization_disabler = build_ext.Optimization()
 
             cython_compile_testcase = runtests.CythonCompileTestCase(
-                workdir=self.tempdir,
+                self.tempdir, self.tempdir, 'codefile', self.destfile,
                 # we clean up everything (not only compiled files)
                 cleanup_workdir=False,
                 tags=runtests.parse_tags(codefile),
-                **opts
             )
 
 
@@ -120,6 +119,7 @@ class DebuggerTestCase(unittest.TestCase):
             optimization_disabler.disable_optimization()
             try:
                 cython_compile_testcase.run_cython(
+                    self.tempdir, 'codefile', self.destfile,
                     targetdir=self.tempdir,
                     incdir=None,
                     annotate=False,
@@ -127,7 +127,6 @@ class DebuggerTestCase(unittest.TestCase):
                         'gdb_debug':True,
                         'output_dir':self.tempdir,
                     },
-                    **opts
                 )
 
                 cython_compile_testcase.run_distutils(
