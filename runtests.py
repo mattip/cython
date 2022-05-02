@@ -875,13 +875,17 @@ class TestBuilder(object):
                                   expect_errors, expect_warnings, warning_errors, preparse,
                                   pythran_dir if language == "cpp" else None,
                                   add_cython_import=add_cython_import,
-                                  extra_directives=extra_directives,
                                   hpy=hpy,
                                  )
+                  for language in languages
+                  for preparse in preparse_list
+                  for language_level in language_levels
+        ]
+        return tests
 
     def build_test(self, test_class, path, workdir, module, module_path, tags, language, language_level,
                    expect_errors, expect_warnings, warning_errors, preparse, pythran_dir, add_cython_import,
-                   extra_directives, hpy=False):
+                   hpy=False):
         language_workdir = os.path.join(workdir, language)
         if not os.path.exists(language_workdir):
             os.makedirs(language_workdir)
@@ -890,8 +894,6 @@ class TestBuilder(object):
             workdir += '_%s' % (preparse,)
         if language_level:
             workdir += '_cy%d' % (language_level,)
-        if extra_directives:
-            workdir += ('_directives_'+ '_'.join('%s_%s' % (k, v) for k,v in extra_directives.items()))
         return test_class(path, workdir, module, module_path, tags,
                           language=language,
                           preparse=preparse,

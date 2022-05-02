@@ -3520,12 +3520,11 @@ class ModuleNode(Nodes.Node, Nodes.BlockNode):
         code.putln("static HPyModuleDef %s =" % Naming.hpymoduledef_cname)
         code.putln('#endif')
         code.putln('{')
-        code.putln("  HPyModuleDef_HEAD_INIT,")
-        code.putln('  .m_name = %s,' % env.module_name.as_c_string_literal())
-        code.putln("  .m_doc = %s," % doc)
-        code.putln("  .m_size = -1,")
+        code.putln('  .name = %s,' % env.module_name.as_c_string_literal())
+        code.putln("  .doc = %s," % doc)
+        code.putln("  .size = -1,")
         code.putln("  .legacy_methods = %s," % env.method_table_cname)
-        if env.is_c_class_scope and not env.hpyfunc_entries:
+        if env.is_c_class_scope or not env.hpyfunc_entries:
             # no HPyDef to add
             pass
         else:
