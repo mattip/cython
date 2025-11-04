@@ -170,11 +170,7 @@ jobs:
             extra_hash: "-stackless"
           # Pypy
           - os: ubuntu-22.04
-            python-version: pypy-3.9
-            backend: c
-            env: { NO_CYTHON_COMPILE: 1 }
-          - os: ubuntu-22.04
-            python-version: pypy-3.10
+            python-version: pypy-3.11
             backend: c
             env: { NO_CYTHON_COMPILE: 1 }
           # Free-threading
